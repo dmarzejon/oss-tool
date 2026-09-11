@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AffOps — UTM + Disclosure (free)</title>
+  <style>
+    :root { --bg:#0f1419; --card:#1a2332; --fg:#e7ecf3; --muted:#8b9bb4; --acc:#3d8bfd; --ok:#3dd68c; --warn:#f5a524; --err:#f31260; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:15px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--fg); }
+    main { max-width:720px; margin:0 auto; padding:2rem 1.25rem 4rem; }
+    h1 { font-size:1.6rem; margin:0 0 .25rem; }
+    .sub { color:var(--muted); margin-bottom:1.5rem; }
+    .sub a { color:var(--acc); }
+    section { background:var(--card); border-radius:12px; padding:1.25rem; margin-bottom:1rem; }
+    h2 { font-size:1.05rem; margin:0 0 .75rem; }
+    label { display:block; font-size:.8rem; color:var(--muted); margin:.5rem 0 .2rem; }
+    input, textarea { width:100%; background:#0d1218; border:1px solid #2a3548; color:var(--fg); border-radius:8px; padding:.55rem .7rem; }
+    textarea { min-height:140px; font-family:ui-monospace,monospace; font-size:.85rem; }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+    @media (max-width:560px){ .row{ grid-template-columns:1fr; } }
+    button { margin-top:.85rem; background:var(--acc); color:#fff; border:0; border-radius:8px; padding:.55rem 1rem; font-weight:600; cursor:pointer; }
+    button:hover { filter:brightness(1.08); }
+    .out { margin-top:.75rem; padding:.75rem; background:#0d1218; border-radius:8px; word-break:break-all; font-family:ui-monospace,monospace; font-size:.85rem; }
+    .findings div { padding:.35rem 0; border-bottom:1px solid #2a3548; }
+    .ok { color:var(--ok); } .warn { color:var(--warn); } .error { color:var(--err); }
+    footer { color:var(--muted); font-size:.8rem; margin-top:1.5rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>AffOps <span style="font-weight:400;color:var(--muted);font-size:.9rem">free</span></h1>
+  <p class="sub">UTM builder + disclosure checker for affiliate / content ops.
+    CLI + PRO: <a href="https://github.com/dmarzejon/oss-tool">github.com/dmarzejon/oss-tool</a>
+    · <a href="https://github.com/sponsors/dmarzejon">Sponsor</a></p>
+
+  <section>
+    <h2>1. UTM link builder</h2>
+    <label>Base URL</label>
+    <input id="url" placeholder="https://example.com/deal" value="https://example.com/deal" />
+    <div class="row">
+      <div><label>utm_source</label><input id="source" value="blog" /></div>
+      <div><label>utm_medium</label><input id="medium" value="affiliate" /></div>
+    </div>
+    <div class="row">
+      <div><label>utm_campaign</label><input id="campaign" value="spring" /></div>
+      <div><label>utm_content</label><input id="content" placeholder="optional" /></div>
+    </div>
+    <button type="button" onclick="buildUtm()">Build URL</button>
+    <div class="out" id="utmOut">—</div>
+  </section>
+
+  <section>
+    <h2>2. Disclosure checker</h2>
+    <label>Paste draft post / email</label>
+    <textarea id="body" placeholder="Paste content…">Try this: https://shareasale.com/r.cfm?affid=1
+
+As an Amazon Associate I earn from qualifying purchases.</textarea>
+    <button type="button" onclick="checkDisclosure()">Scan</button>
+    <div class="findings out" id="discOut">—</div>
+  </section>
+
+  <footer>MIT free core · PRO $15/mo unlocks batch CSV, custom rules, exports — see repo PRO.md. Runs 100% in your browser.</footer>
+</main>
+<script>
+const PHRASES = [
+  /affiliate\s+link/i, /affiliate\s+disclosure/i, /as\s+an\s+amazon\s+associate/i,
+  /i\s+(may\s+)?earn\s+(a\s+)?commission/i, /we\s+(may\s+)?earn\s+(a\s+)?commission/i,
+  /compensated\s+affiliate/i, /paid\s+partnership/i, /#ad\b/i, /#affiliate\b/i, /disclosure\s*:/i
+];
+
+function buildUtm() {
+  try {
+    const u = new URL(document.getElementById('url').value.trim());
+    const map = {
+      utm_source: document.getElementById('source').value.trim(),
+      utm_medium: document.getElementById('medium').value.trim(),
+      utm_campaign: document.getElementById('campaign').value.trim(),
+      utm_content: document.getElementById('content').value.trim(),
+    };
+    for (const [k,v] of Object.entries(map)) if (v) u.searchParams.set(k, v);
+    document.getElementById('utmOut').textContent = u.toString();
+  } catch (e) {
+    document.getElementById('utmOut').textContent = 'Invalid URL: ' + e.message;
+  }
+}
+
+function checkDisclosure() {
+  const text = document.getElementById('body').value || '';
+  const findings = [];
+  if (!text.trim()) findings.push(['error', 'Empty content']);
+  const matched = PHRASES.filter(p => p.test(text));
+  const aff = text.match(/https?:\/\/[^\s)"']+(?:tag=|ascsubtag=|ref=|aff(?:iliate)?id=|clickid=)[^\s)"']*/ig) || [];
+  if (matched.length) findings.push(['ok', `Found ${matched.length} disclosure pattern(s)`]);
+  else findings.push([aff.length ? 'error' : 'warn', aff.length
+    ? 'No disclosure near affiliate-style links' : 'No disclosure phrases found']);
+  if (aff.length) findings.push(['warn', `Detected ${aff.length} possible affiliate URL(s)`]);
+  else findings.push(['ok', 'No obvious affiliate tracking params']);
+  document.getElementById('discOut').innerHTML = findings.map(([lvl,msg]) =>
+    `<div class="${lvl}"><strong>${lvl.toUpperCase()}</strong> — ${msg}</div>`).join('');
+}
+</script>
+</body>
+</html>

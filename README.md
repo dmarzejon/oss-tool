@@ -22,6 +22,7 @@ No account. No phone-home. Runs offline.
 
 ```bash
 # requires Python 3.9+ (stdlib only — no pip install)
+# keep affops.py + affops_lib.py in the same directory
 python3 affops.py utm "https://example.com/deal" \
   --source blog --medium affiliate --campaign spring
 
